@@ -1,9 +1,11 @@
 import { connectDB } from "@/lib/db/connectDB";
 import { UserModal } from "@/lib/models/User";
-
+import bcrypt  from "bcrypt";
+import jwt from "jsonwebtoken"
 export async function GET(request) {
   await connectDB();
   const users = await UserModal.find();
+
   return Response.json(
     {
       msg: "Users Fetched Successfully",
@@ -15,9 +17,32 @@ export async function GET(request) {
 export async function POST(request) {
   await connectDB();
   const obj = await request.json();
-  let newUser = new UserModal(obj);
-  await newUser.save();
-  return Response.json(newUser, { status: 201 });
+   //user exist kerta he ya nahi 
+   const user = await UserModal.findOne({email: obj.email})
+   if(user)
+     return Response.json(
+   {error :true , msg:"User  with this email Already Exist"},
+   {status : 403}
+ )
+ const saltRounds = 10;
+ const hashedPassword = bcrypt.hash(obj.password, saltRounds)
+obj.password = hashedPassword;
+
+let newUser = new UserModal(obj);
+await newUser.save();
+var token = jwt.sign({ id:newUser._id, role:newUser.role  },
+  process.env.JWT_KEY
+);
+
+
+console.log("obg =>", obj)
+  return Response.json(
+    {
+      msg: "User Added Successfully",
+      user:newUser,
+      token
+    },
+    { status: 201 });
 }
 export async function PUT(request) {}
 export async function DELETE(request) {}
